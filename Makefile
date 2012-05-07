@@ -7,8 +7,11 @@ all: pipe_lat pipe_thr \
 	tcp_local_lat tcp_remote_lat \
 	shm
 
-shm: CFLAGS += -lrt
+shm: shm.c
+	$(CC) $(CFLAGS) shm.c -lrt  -o shm
+	
 
+	
 run:
 	./pipe_lat 100 10000
 	./unix_lat 100 10000
