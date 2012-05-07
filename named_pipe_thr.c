@@ -32,6 +32,7 @@
 #include <time.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -105,6 +106,10 @@ int main(int argc, char *argv[])
         perror("unlinking fifo");
         exit(1);
     }
+    // wait until child is terminated
+    int status;
+    wait(&status);
+
     gettimeofday(&stop, NULL);
 
     delta = ((stop.tv_sec - start.tv_sec) * (int64_t) 1e6 +

@@ -30,6 +30,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <stdint.h>
 
@@ -85,6 +87,10 @@ int main(int argc, char *argv[])
         exit(1);
       }
     }
+
+    // wait until the child has terminated
+    int status;
+    wait(&status);
 
     gettimeofday(&stop, NULL);
 
