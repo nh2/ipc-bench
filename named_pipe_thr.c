@@ -63,7 +63,6 @@ int main(int argc, char *argv[])
   printf("message size: %i octets\n", size);
   printf("message count: %lli\n", count);
 
-  unlink(fifo);
   if (mkfifo(fifo, S_IWUSR | S_IRUSR | S_IRGRP |  S_IROTH) == -1) {
     perror("named-pipe");
     exit(1);
@@ -102,6 +101,10 @@ int main(int argc, char *argv[])
       }
     }
 
+    if (unlink(fifo) == -1) {
+        perror("unlinking fifo");
+        exit(1);
+    }
     gettimeofday(&stop, NULL);
 
     delta = ((stop.tv_sec - start.tv_sec) * (int64_t) 1e6 +
