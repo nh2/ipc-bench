@@ -44,6 +44,7 @@ deploy: all
 	scp -i $(SSH_KEYFILE) msgq_thr root@$(TARGET_HOST):$(DEPLOY_DIR)/msgq_thr
 	scp -i $(SSH_KEYFILE) unix_thr root@$(TARGET_HOST):$(DEPLOY_DIR)/unix_thr
 	scp -i $(SSH_KEYFILE) tcp_thr root@$(TARGET_HOST):$(DEPLOY_DIR)/tcp_thr
+	scp -i $(SSH_KEYFILE) ipc_bench.py root@$(TARGET_HOST):$(DEPLOY_DIR)/ipc_bench.py
 
 clean:
 	rm -f *~ core

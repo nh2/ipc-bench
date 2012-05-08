@@ -74,17 +74,15 @@ class TestEnviromentInfo(object):
         self.os = platform.platform()
         self.cpu_name = cpuinfo.model_name
         self.cpu_cache_size = cpuinfo.cache_size
-        self.cpu_cores = cpuinfo.cpu_cores
         self.system_memory = meminfo.MemTotal
 
     def __str__(self):
         str  = "OS: {os}\n"
         str += "CPU-Name: {cpu_name}\n" 
-        str += "CPU-Cores: {cpu_cores}\n"
         str += "CPU-Cache: {cpu_cache}\n"
         str += "System-Memeory: {memory}"
         str = str.format(os=self.os, cpu_name=self.cpu_name, 
-                         cpu_cores=self.cpu_cores, cpu_cache=self.cpu_cache_size, 
+                         cpu_cache=self.cpu_cache_size, 
                          memory=self.system_memory)
         
         return str
@@ -229,9 +227,9 @@ if __name__ == '__main__':
     else:    
         test_data["pipe"] = pipe_thr.run_tests(message_size, message_count, test_count)
         test_data["named_pipe"] = named_pipe_thr.run_tests(message_size, message_count, test_count)
-        test_data["unix"] = unix_thr.run_tests(message_size, message_count, test_count)
-        test_data["msgq"] = msgq_thr.run_tests(message_size, message_count, test_count)
-        test_data["tcp"] = tcp_thr.run_tests(message_size, message_count, test_count)
+        test_data["unix_socket"] = unix_thr.run_tests(message_size, message_count, test_count)
+        test_data["message_queue"] = msgq_thr.run_tests(message_size, message_count, test_count)
+        test_data["tcp_socket"] = tcp_thr.run_tests(message_size, message_count, test_count)
         pretty_print_results(test_data)
         sys.exit(0)
 
