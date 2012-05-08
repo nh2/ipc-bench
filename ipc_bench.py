@@ -11,6 +11,7 @@ import sys
 import argparse
 import platform
 import subprocess
+import datetime
 
 
 class Info(object):
@@ -194,11 +195,69 @@ def pretty_print_results(test_data):
         print("Average Throughput: {0} Mb/s".format(test_data["avg_thr_mbs"][0]))
         print("-" * 80)
         
+
+def create_csv_file(test_data, test_count):
+    message_count = 5000
+    message_sizes = [8, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16000, 32768, 65536]
+    test_results = {}
+    for size in message_sizes:
+        print("Running test for messsage size: [{0} Bytes]".format(size))
+        results = {}
+        test_data = pipe_thr.run_tests(size, message_count, test_count)
+        data = {"throughput": test_data["avg_thr_mbs"][0], 
+                "unit": test_data["avg_thr_mbs"][1]}
+        results["pipe"] = data
+        test_data = named_pipe_thr.run_tests(size, message_count, test_count)
+        data = {"ipc-method": "named_pipe", "throughput": test_data["avg_thr_mbs"][0], 
+                "unit": test_data["avg_thr_mbs"][1]}
+        results["named_pipe"] = data
+        test_data = tcp_thr.run_tests(size, message_count, test_count) 
+        data = {"throughput": test_data["avg_thr_mbs"][0], 
+                "unit": test_data["avg_thr_mbs"][1]}
+        results["tcp_socket"] = data
+        # Message queues only supporting a max message size of 8192 Bytes
+        if size <= 8192:
+            test_data = msgq_thr.run_tests(size, message_count, test_count)
+            data = {"throughput": test_data["avg_thr_mbs"][0], 
+                    "unit": test_data["avg_thr_mbs"][1]}
+            results["message_queue"] = data
+        if size <= 16000:
+            test_data = unix_thr.run_tests(size, message_count, test_count)
+            data = {"throughput": test_data["avg_thr_mbs"][0], 
+                    "unit": test_data["avg_thr_mbs"][1]}
+            results["unix_socket"] = data
+        test_results[size] = results
+        print("Done")
         
-def create_cvs_file(test_data):
-    pass
+    filename = "ipc_bench_{0}".format(datetime.datetime.now().isoformat())
+    f = None
+    try:
+        ipc_methods = ["pipe", "named_pipe", "unix_socket", "tcp_socket", "message_queue"]
+        f = open(filename, "w")
+        for ipc_method in ipc_methods:
+            f.write(ipc_method + "\n")
+            f.write(accumulate_ipc_data(test_results, ipc_method))
+            f.write("-" * 80 + "\n")
+    except (IOError, KeyError) as ex:
+        print(test_results)
+        raise
+    finally:
+        if f: f.close()
         
         
+def accumulate_ipc_data(test_data, ipc_method):
+    str_msg_size = "message size: "
+    str_mbs_thr = "throughput: "
+    for key in sorted(test_data.keys()):
+        str_msg_size += str(key) + ","
+        try:
+            str_mbs_thr += str(test_data[key][ipc_method]["throughput"]) + ","
+        except KeyError as ex:
+            str_mbs_thr += "-,"
+            
+    return str_msg_size + "\n" + str_mbs_thr + "\n"
+
+
 if __name__ == '__main__':
 
     parser = create_args_parser()
@@ -215,14 +274,9 @@ if __name__ == '__main__':
     msgq_thr = IpcTest("./msgq_thr")
     tcp_thr  = IpcTest("./tcp_thr")
     
-    test_data["pipe"] = pipe_thr.run_tests(message_size, message_count, test_count)
-    test_data["named_pipe"] = named_pipe_thr.run_tests(message_size, message_count, test_count)
-    test_data["unix"] = unix_thr.run_tests(message_size, message_count, test_count)
-    test_data["msgq"] = msgq_thr.run_tests(message_size, message_count, test_count)
-    test_data["tcp"] = tcp_thr.run_tests(message_size, message_count, test_count)
     
     if args.ipc_test:
-        create_cvs_file(test_data)
+        create_csv_file(test_data, test_count)
         sys.exit(0)
     else:    
         test_data["pipe"] = pipe_thr.run_tests(message_size, message_count, test_count)
