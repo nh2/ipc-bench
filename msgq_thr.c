@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
     struct timeval start, stop;
 
     if (argc != 3) {
-        printf ("usage: named_pipe_thr <message-size> <message-count>\n");
+        printf ("usage: msgq_thr <message-size> <message-count>\n");
         exit(EXIT_FAILURE);
     }
     size = atoi(argv[1]);
