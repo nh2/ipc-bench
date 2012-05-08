@@ -1,9 +1,9 @@
 # For Cross Complie ENV.
-# TOOLCHAINDIR=/home/ncoretti/openwrt/openwrt-buildsys/Code/staging_dir/toolchain-i386_gcc-4.4.3_glibc-2.6.1/usr/bin
-# CC=$(TOOLCHAINDIR)/i486-openwrt-linux-gcc
-# CXX=$(TOOLCHAINDIR)/i486-openwrt-linux-g++
-# LD=$(TOOLCHAINDIR)/i486-openwrt-linux-ld
-# AS=$(TOOLCHAINDIR)/i486-openwrt-linux-as
+ TOOLCHAINDIR=/home/ncoretti/openwrt/openwrt-buildsys/Code/staging_dir/toolchain-i386_gcc-4.4.3_glibc-2.6.1/usr/bin
+ CC=$(TOOLCHAINDIR)/i486-openwrt-linux-gcc
+ CXX=$(TOOLCHAINDIR)/i486-openwrt-linux-g++
+ LD=$(TOOLCHAINDIR)/i486-openwrt-linux-ld
+ AS=$(TOOLCHAINDIR)/i486-openwrt-linux-as
 
 # Vars for deployment
 TARGET_HOST =  192.168.0.12
