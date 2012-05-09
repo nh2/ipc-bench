@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
+
 '''
 Accumulates data produced by ipc-bench.
 
@@ -8,10 +9,37 @@ Accumulates data produced by ipc-bench.
 @version: 0.1.0
 '''
 import sys
+import os
 import argparse
 import platform
 import subprocess
 import datetime
+import shutil
+import zipfile
+
+GNUPLOT_TEMPLATE = """
+# output file and format
+set output 'ipc_performance_test.png'
+set terminal png
+
+# title
+set title 'IPC-Performance Test'
+
+# axis and grid
+set xlabel 'Message size in Bytes'
+set xrange [0:65536]
+set xtic auto
+set ylabel 'Throughput in Mbit/s'
+set grid ytics
+set border 3
+set yrange [0:50000]
+
+# legend
+set key outside bottom center box title 'IPC-Methods'
+
+# plot
+plot {0}
+"""
 
 
 class Info(object):
@@ -151,6 +179,7 @@ class IpcTest(object):
         
         return test_results
     
+    
     def accumulate_test_data(self, test_results, message_size, message_count, test_count):
         results = {}
         avg_thr_msgs = [v for test in test_results for k,v in test.items() if k == "avg_thr_msgs"]
@@ -163,23 +192,12 @@ class IpcTest(object):
         results["test_count"] = (test_count, "Tests")
         
         return results
-        
-        
-def create_args_parser():
-    args_parser = argparse.ArgumentParser()
-    args_parser.add_argument('message_size', metavar='<message_size>', type=int, 
-                   help='size of the test messages which will be transfered via ipc.')
-    args_parser.add_argument('message_count', metavar='<message count>', type=int, 
-                   help='amount of messages which will be transfered via ipc for each test.')
-    args_parser.add_argument('test_count', metavar='<test count>', type=int, 
-                   help='amount of test which shall be run.')
-    args_parser.add_argument('--ipc-test',  action='store_true', 
-                   help='if supplied a cvs file with the accumulated data will be produced.')
-    
-    return args_parser
 
 
 def pretty_print_results(test_data):
+    """
+    Pretty prints test results to stdout.
+    """
     print("=" * 80)
     test_env_info = TestEnviromentInfo()
     print(test_env_info)
@@ -196,66 +214,131 @@ def pretty_print_results(test_data):
         print("-" * 80)
         
 
-def create_csv_file(test_data, test_count):
-    message_count = 5000
+def run_tests(ipc_method, message_size):
+    """
+    Check whether the ipc tests for an specific method can be run 
+    with the specified message size.
+    
+    @param ipc_method: name of the ipc method. 
+    @type ipc_method: string (pipe, named_pipe, unix_socket, tcp_socket, message_queue)
+    
+    @param message_size: which shall be used for the specified ipc method.
+    @type message_size: int
+    
+    @return: True if the ipc method can run with the specified message size,
+             otherwise False.
+    """
+    can_run_tests = True
+    # Message queues only supporting a max message size of 8192 Bytes
+    if (message_size > 8192) and (ipc_method == 'message_queue'):
+        can_run_tests = False
+    # Got an error when used a message size > 16000 Byte for the unix socket
+    if (message_size > 16000) and (ipc_method == 'unix_socket'):
+        can_run_tests = False
+    
+    return can_run_tests
+
+
+def ipc_bench(ipc_tests, message_count, test_count):
     message_sizes = [8, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16000, 32768, 65536]
     test_results = {}
     for size in message_sizes:
-        print("Running test for messsage size: [{0} Bytes]".format(size))
         results = {}
-        test_data = pipe_thr.run_tests(size, message_count, test_count)
-        data = {"throughput": test_data["avg_thr_mbs"][0], 
-                "unit": test_data["avg_thr_mbs"][1]}
-        results["pipe"] = data
-        test_data = named_pipe_thr.run_tests(size, message_count, test_count)
-        data = {"ipc-method": "named_pipe", "throughput": test_data["avg_thr_mbs"][0], 
-                "unit": test_data["avg_thr_mbs"][1]}
-        results["named_pipe"] = data
-        test_data = tcp_thr.run_tests(size, message_count, test_count) 
-        data = {"throughput": test_data["avg_thr_mbs"][0], 
-                "unit": test_data["avg_thr_mbs"][1]}
-        results["tcp_socket"] = data
-        # Message queues only supporting a max message size of 8192 Bytes
-        if size <= 8192:
-            test_data = msgq_thr.run_tests(size, message_count, test_count)
-            data = {"throughput": test_data["avg_thr_mbs"][0], 
-                    "unit": test_data["avg_thr_mbs"][1]}
-            results["message_queue"] = data
-        if size <= 16000:
-            test_data = unix_thr.run_tests(size, message_count, test_count)
-            data = {"throughput": test_data["avg_thr_mbs"][0], 
-                    "unit": test_data["avg_thr_mbs"][1]}
-            results["unix_socket"] = data
+        for ipc_method in ipc_tests:
+            msg = "Running {0} - Tests with a messsage size of [{1} Bytes]"
+            msg = msg.format(ipc_method, size)
+            print(msg)
+
+            if run_tests(ipc_method, size):
+                test_data = ipc_tests[ipc_method].run_tests(size, message_count, test_count)
+                data = {"throughput": test_data["avg_thr_mbs"][0], 
+                        "unit": test_data["avg_thr_mbs"][1]}
+                results[ipc_method] = data
         test_results[size] = results
-        print("Done")
-        
-    filename = "ipc_bench_{0}".format(datetime.datetime.now().isoformat())
-    f = None
+    
+    return test_results
+
+
+def create_dat_files(ipc_tests, test_results, dst_dir):
+    """
+    Creates .dat files for all the test_results.
+    
+    @param ipc_tests: list of ipc tests which was used to created the data.
+    @param test_results: dictionary containing all test results.
+    @param dst_dir: directory where the .dat-files shall be stored.
+    
+    @return: a list of paths to all dat files which where created.
+    @rtype: list of strings. e.g. ["path1", "path2", ... ]
+    """
+    dat_files = {}
+    for  ipc_method in ipc_tests:
+        filename = "{0}.dat".format(ipc_method)
+        filename = os.path.join(dst_dir, filename) 
+        out_file = None
+        try:
+            out_file = open(filename, "w")
+            line = "# message_size (in Bytes) throughput (in Mbit/s)\n"
+            out_file.write(line)            
+            for message_size in sorted(test_results.keys()):
+                throughput = None
+                try:
+                    throughput = test_results[message_size][ipc_method]["throughput"]
+                except KeyError as ex:
+                    throughput = "-"
+                line = "{0}\t{1}\n".format(message_size, throughput)
+                out_file.write(line)
+            dat_files[ipc_method] = ipc_method + ".dat"
+        except IOError as ex:
+            raise
+        finally:
+            if out_file: out_file.close()
+     
+    return dat_files    
+
+
+def create_gnu_plot_file(dat_files, dst_dir):
+    plot_str = ""
+    for dat_file_key in dat_files.keys():
+        line = "'{0}' using 1:2 title '{1}' with lines,\\\n"
+        line = line.format(dat_files[dat_file_key], dat_file_key)
+        plot_str += line
+    plot_str = GNUPLOT_TEMPLATE.format(plot_str[0:-3])
+    
+    out_file = None
     try:
-        ipc_methods = ["pipe", "named_pipe", "unix_socket", "tcp_socket", "message_queue"]
-        f = open(filename, "w")
-        for ipc_method in ipc_methods:
-            f.write(ipc_method + "\n")
-            f.write(accumulate_ipc_data(test_results, ipc_method))
-            f.write("-" * 80 + "\n")
-    except (IOError, KeyError) as ex:
-        print(test_results)
+        filename = os.path.join(dst_dir, "ipc-test.gnu")
+        out_file = open(filename, "w")
+        out_file.write(plot_str)
+    except IOError as ex:
         raise
     finally:
-        if f: f.close()
+        if out_file: out_file.close()
         
-        
-def accumulate_ipc_data(test_data, ipc_method):
-    str_msg_size = "message size: "
-    str_mbs_thr = "throughput: "
-    for key in sorted(test_data.keys()):
-        str_msg_size += str(key) + ","
-        try:
-            str_mbs_thr += str(test_data[key][ipc_method]["throughput"]) + ","
-        except KeyError as ex:
-            str_mbs_thr += "-,"
-            
-    return str_msg_size + "\n" + str_mbs_thr + "\n"
+
+def create_args_parser():
+    args_parser = argparse.ArgumentParser()
+    args_parser.add_argument('--message-size', type=int, default=1024, metavar='N',
+                   help='size of the test messages which will be transfered via ipc.')
+    args_parser.add_argument('--message-count', type=int, default=10000, metavar='N',
+                   help='amount of messages which will be transfered via ipc for each test.')
+    args_parser.add_argument('--test-count', type=int, default=1, metavar='N',
+                   help='amount of test which shall be run.')
+    args_parser.add_argument('--ipc-bench',  metavar='NAME', 
+                   help='if supplied multiple test will run and gnuplot output is produced.')
+    args_parser.add_argument('--all', default=False, action='store_true', 
+                             help= 'enables all ipc performance tests')
+    args_parser.add_argument('--msgq', default=False, action='store_true',
+                             help='enables ipc performance tests for message queues.')
+    args_parser.add_argument('--pipe', default=False, action='store_true',
+                             help='enables ipc performance tests for pipe.')
+    args_parser.add_argument('--named-pipe', default=False, action='store_true',
+                             help='enables ipc performance tests for named pipe.')
+    args_parser.add_argument('--unix-sock', default=False, action='store_true',
+                             help='enables ipc performance tests for unix socket.')
+    args_parser.add_argument('--tcp-sock', default=False, action='store_true',
+                             help='enables ipc performance tests for tcp socket.')
+    
+    return args_parser
 
 
 if __name__ == '__main__':
@@ -268,22 +351,50 @@ if __name__ == '__main__':
     message_size = args.message_size
     message_count = args.message_count
     
-    pipe_thr = IpcTest("./pipe_thr")
-    named_pipe_thr = IpcTest("./named_pipe_thr")
-    unix_thr = IpcTest("./unix_thr")
-    msgq_thr = IpcTest("./msgq_thr")
-    tcp_thr  = IpcTest("./tcp_thr")
+    pipe_thr = IpcTest("/home/ncoretti/ipc-bench/pipe_thr")
+    named_pipe_thr = IpcTest("/home/ncoretti/ipc-bench/named_pipe_thr")
+    unix_thr = IpcTest("/home/ncoretti/ipc-bench/unix_thr")
+    msgq_thr = IpcTest("/home/ncoretti/ipc-bench/msgq_thr")
+    tcp_thr  = IpcTest("/home/ncoretti/ipc-bench/tcp_thr")
     
+    ipc_tests = {}
+    if args.all:
+        ipc_tests["pipe"] = pipe_thr
+        ipc_tests["named_pipe"] = named_pipe_thr
+        ipc_tests["unix_socket"] = unix_thr
+        ipc_tests["message_queue"] = msgq_thr
+        ipc_tests["tcp_socket"] = tcp_thr
+    else:
+        if args.msgq: ipc_tests["message_queue"] = msgq_thr
+        if args.pipe: ipc_tests["pipe"] = pipe_thr
+        if args.named_pipe: ipc_tests["named_pipe"] = named_pipe_thr
+        if args.unix_sock: ipc_tests["unix_socket"] = unix_thr
+        if args.tcp_sock: ipc_tests["tcp_socket"] = tcp_thr
     
-    if args.ipc_test:
-        create_csv_file(test_data, test_count)
+    if args.ipc_bench:
+        # The message size is ignored by the ipc_bench test
+        test_results = ipc_bench(ipc_tests, message_count, test_count)
+        try:
+            os.mkdir(args.ipc_bench)
+        except OSError as ex:
+           if ex.errno == 17:
+               shutil.copytree(args.ipc_bench, args.ipc_bench + datetime.datetime.now().isoformat() + ".bak")
+               shutil.rmtree(args.ipc_bench)
+               os.mkdir(args.ipc_bench)
+    
+        dat_files = create_dat_files(ipc_tests, test_results, args.ipc_bench)
+        create_gnu_plot_file(dat_files, args.ipc_bench)
+        try:
+            subprocess.call(["tar", "-czf", args.ipc_bench + ".tar.gz", args.ipc_bench])
+            shutil.rmtree(args.ipc_bench)
+        except Exception as ex:
+            raise
+        
         sys.exit(0)
+    
     else:    
-        test_data["pipe"] = pipe_thr.run_tests(message_size, message_count, test_count)
-        test_data["named_pipe"] = named_pipe_thr.run_tests(message_size, message_count, test_count)
-        test_data["unix_socket"] = unix_thr.run_tests(message_size, message_count, test_count)
-        test_data["message_queue"] = msgq_thr.run_tests(message_size, message_count, test_count)
-        test_data["tcp_socket"] = tcp_thr.run_tests(message_size, message_count, test_count)
+        for ipc_method in ipc_tests:
+            test_data[ipc_method] = ipc_tests[ipc_method].run_tests(message_size, message_count, test_count)
         pretty_print_results(test_data)
         sys.exit(0)
 
@@ -292,5 +403,5 @@ if __name__ == '__main__':
 
 
     
-
     
+
