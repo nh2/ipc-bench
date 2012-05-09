@@ -25,10 +25,83 @@ latency.
 ipc_bench.py
 =============
 requirements:
+ - gcc
+ - make
  - tar 
  - pyhton 2.7
 
+ ** in order to run ipc_bench.py you have to run "make all" first. **
+
 features:
  - gnuplot output
+
+examples:
+
+./ipc_bench.py --all 
+output:
+================================================================================
+OS: Linux-3.0.0-16-generic-x86_64-with-Ubuntu-11.10-oneiric
+CPU-Name: Intel(R) Core(TM) i5 CPU         760  @ 2.80GHz
+CPU-Cache: 8192 KB
+System-Memeory: 4048032 kB
+================================================================================
+IPC-Method: pipe
+Tests: 1, Messages sent for each test: 10000, Message size: 1024 Byte
+Average Throughput: 1788268 Msg/s
+Average Throughput: 14649 Mb/s
+--------------------------------------------------------------------------------
+IPC-Method: unix_socket
+Tests: 1, Messages sent for each test: 10000, Message size: 1024 Byte
+Average Throughput: 1120071 Msg/s
+Average Throughput: 9175 Mb/s
+--------------------------------------------------------------------------------
+IPC-Method: named_pipe
+Tests: 1, Messages sent for each test: 10000, Message size: 1024 Byte
+Average Throughput: 1705029 Msg/s
+Average Throughput: 13967 Mb/s
+--------------------------------------------------------------------------------
+IPC-Method: message_queue
+Tests: 1, Messages sent for each test: 10000, Message size: 1024 Byte
+Average Throughput: 2157497 Msg/s
+Average Throughput: 17674 Mb/s
+--------------------------------------------------------------------------------
+IPC-Method: tcp_socket
+Tests: 1, Messages sent for each test: 10000, Message size: 1024 Byte
+Average Throughput: 337952 Msg/s
+Average Throughput: 2768 Mb/s
+--------------------------------------------------------------------------------
+
+./ipc_bench --unix-sock --message-size 2048 --message-count 10
+output:
+================================================================================
+OS: Linux-3.0.0-16-generic-x86_64-with-Ubuntu-11.10-oneiric
+CPU-Name: Intel(R) Core(TM) i5 CPU         760  @ 2.80GHz
+CPU-Cache: 8192 KB
+System-Memeory: 4048032 kB
+================================================================================
+IPC-Method: unix_socket
+Tests: 1, Messages sent for each test: 10, Message size: 2048 Byte
+Average Throughput: 35714 Msg/s
+Average Throughput: 585 Mb/s
+--------------------------------------------------------------------------------
+
+./ipc_bench.py --unix-sock --test-count 10 --message-count 10 --ipc-bench gnuplot_output
+output:
+Running unix_socket-tests              messsage size [8 Bytes]
+Running unix_socket-tests              messsage size [32 Bytes]
+Running unix_socket-tests              messsage size [64 Bytes]
+Running unix_socket-tests              messsage size [128 Bytes]
+Running unix_socket-tests              messsage size [256 Bytes]
+Running unix_socket-tests              messsage size [512 Bytes]
+Running unix_socket-tests              messsage size [1024 Bytes]
+Running unix_socket-tests              messsage size [2048 Bytes]
+Running unix_socket-tests              messsage size [4096 Bytes]
+Running unix_socket-tests              messsage size [8192 Bytes]
+Running unix_socket-tests              messsage size [16000 Bytes]
+Running unix_socket-tests              messsage size [32768 Bytes]
+Running unix_socket-tests              messsage size [65536 Bytes]
+
+All tests finished, results => ** gnuplot_output.tar.gz **
+
 
 This software is distributed under the MIT License.
