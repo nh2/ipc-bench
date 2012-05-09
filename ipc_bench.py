@@ -245,8 +245,8 @@ def ipc_bench(ipc_tests, message_count, test_count):
     for size in message_sizes:
         results = {}
         for ipc_method in ipc_tests:
-            msg = "Running {0} - Tests with a messsage size of [{1} Bytes]"
-            msg = msg.format(ipc_method, size)
+            msg = "Running {0:<30} messsage size [{1} Bytes]"
+            msg = msg.format(ipc_method + "-tests", size)
             print(msg)
 
             if run_tests(ipc_method, size):
@@ -351,11 +351,11 @@ if __name__ == '__main__':
     message_size = args.message_size
     message_count = args.message_count
     
-    pipe_thr = IpcTest("/home/ncoretti/ipc-bench/pipe_thr")
-    named_pipe_thr = IpcTest("/home/ncoretti/ipc-bench/named_pipe_thr")
-    unix_thr = IpcTest("/home/ncoretti/ipc-bench/unix_thr")
-    msgq_thr = IpcTest("/home/ncoretti/ipc-bench/msgq_thr")
-    tcp_thr  = IpcTest("/home/ncoretti/ipc-bench/tcp_thr")
+    pipe_thr = IpcTest("./pipe_thr")
+    named_pipe_thr = IpcTest("./named_pipe_thr")
+    unix_thr = IpcTest("./unix_thr")
+    msgq_thr = IpcTest("./msgq_thr")
+    tcp_thr  = IpcTest("./tcp_thr")
     
     ipc_tests = {}
     if args.all:
@@ -384,12 +384,15 @@ if __name__ == '__main__':
     
         dat_files = create_dat_files(ipc_tests, test_results, args.ipc_bench)
         create_gnu_plot_file(dat_files, args.ipc_bench)
+        result_file = None
         try:
             subprocess.call(["tar", "-czf", args.ipc_bench + ".tar.gz", args.ipc_bench])
             shutil.rmtree(args.ipc_bench)
+            result_file = args.ipc_bench + ".tar.gz"
         except Exception as ex:
             raise
         
+        print("\nAll tests finished, results => ** {0} **".format(result_file))
         sys.exit(0)
     
     else:    
