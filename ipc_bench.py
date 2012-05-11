@@ -27,12 +27,12 @@ set title 'IPC-Performance Test'
 
 # axis and grid
 set xlabel 'Message size in Bytes'
-set xrange [0:65536]
-set xtic auto
+set xrange [0:8192]
+set xtic out nomirror rotate 1 1024 scale 1,0.5
 set ylabel 'Throughput in Mbit/s'
 set grid ytics
 set border 3
-set yrange [0:50000]
+set yrange [0:6000]
 
 # legend
 set key outside bottom center box title 'IPC-Methods'
