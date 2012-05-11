@@ -299,7 +299,7 @@ def create_dat_files(ipc_tests, test_results, dst_dir):
 def create_gnu_plot_file(dat_files, dst_dir):
     plot_str = ""
     for dat_file_key in dat_files.keys():
-        line = "'{0}' using 1:2 title '{1}' with lines,\\\n"
+        line = "'{0}' using 1:2 title '{1}' with lines lw 2,\\\n"
         line = line.format(dat_files[dat_file_key], dat_file_key)
         plot_str += line
     plot_str = GNUPLOT_TEMPLATE.format(plot_str[0:-3])
