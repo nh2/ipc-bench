@@ -18,15 +18,17 @@ all: pipe_lat pipe_thr \
 	tcp_local_lat tcp_remote_lat \
 	named_pipe_thr \
 	msgq_thr \
+	msgq_lat \
 	shm
 
 shm: shm.c
 	$(CC) $(CFLAGS) shm.c -lrt  -o shm
-	
 
-	
+
+
 run_lat:
 	./pipe_lat 100 10000
+	./msgq_lat 100 10000
 	./unix_lat 100 10000
 	./tcp_lat 100 10000
 
@@ -50,7 +52,7 @@ clean:
 	rm -f *~ core
 	rm -f pipe_lat pipe_thr 
 	rm -f named_pipe_thr
-	rm -f msgq_thr
+	rm -f msgq_lat msgq_thr
 	rm -f unix_lat unix_thr 
 	rm -f tcp_lat tcp_thr 
 	rm -f tcp_local_lat tcp_remote_lat
